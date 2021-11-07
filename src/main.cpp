@@ -9,7 +9,6 @@
 
 #define NOMINMAX
 #define DEBUG false
-#include <Windows.h>
 
 std::vector<std::pair<int, int>> points;
 std::vector<std::vector<int>> map;
