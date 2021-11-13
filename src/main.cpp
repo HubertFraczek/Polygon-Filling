@@ -58,12 +58,12 @@ void printAllPoints() {
 }
 
 void printMap() {
-  for (auto &i : map) {
-    for (auto &j : i) {
-      std::cout << j << " ";
-    }
-    std::cout << "\n";
-  }
+	for (auto &i : map) {
+		for (auto &j : i) {
+			std::cout << j << " ";
+		}
+		std::cout << "\n";
+	}
 }
 
 void initializeMap(int yMin, int yMax, int xMin, int xMax) {
@@ -78,15 +78,16 @@ void initializeMap(int yMin, int yMax, int xMin, int xMax) {
 
 void calculatEdges() {
 	int y1, x1, y2, x2, tmp, y_acc, x_acc, old_x, counter;
-  float accV2, x, y;
-
+	float accV2, x, y;
+#pragma omp parallel for private(y1, x1, y2, x2, tmp, y_acc, x_acc, old_x, x, y) shared(map, accV2)
 	for (int i = 0; i < points.size(); i++) {
 		y1 = points[i].first;
 		x1 = points[i].second;
 		if (i == points.size() - 1) {
 			y2 = points[0].first;
 			x2 = points[0].second;
-		} else {
+		}
+		else {
 			y2 = points[i + 1].first;
 			x2 = points[i + 1].second;
 		}
@@ -97,79 +98,83 @@ void calculatEdges() {
 			for (int x = std::min(x1, x2) + 1;
 				x < std::max(x1, x2); x++)
 				map[y1][x] = 2;
-		} else if (x1 == x2) {
+		}
+		else if (x1 == x2) {
 			for (int y = std::min(y1, y2) + 1;
 				y < std::max(y1, y2); y++)
 				map[y][x1] = 2;
-		} else {
-      counter = 0;
-      y_acc = y1 < y2 ? 1 : -1;
-      x_acc = x1 < x2 ? 1 : -1;
-      x = x1;
-      accV2 = x_acc * ((float) abs(x1 - x2) / abs(y1 - y2));
+		}
+		else {
+			counter = 0;
+			y_acc = y1 < y2 ? 1 : -1;
+			x_acc = x1 < x2 ? 1 : -1;
+			x = x1;
+			accV2 = x_acc * ((float)abs(x1 - x2) / abs(y1 - y2));
 
-      while (abs(y1 - y2) > 1) {
-        y1 += y_acc;
-        x += accV2;
-        map[y1][(int)x] = 2;
-      }
+			while (abs(y1 - y2) > 1) {
+				y1 += y_acc;
+				x += accV2;
+				map[y1][(int)x] = 2;
+			}
 		}
 	}
 }
 
 bool evenNumberOfEdgesToTheLeft(int y, int x, int xMax) {
-  int counter = 0;
-  for (int i = x + 1; i <= xMax; i++)
-    if (map[y][i] == 2)
-      counter++;
-  return counter % 2 == 0 ? true : false;
+	int counter = 0;
+	for (int i = x + 1; i <= xMax; i++)
+		if (map[y][i] == 2)
+			counter++;
+	return counter % 2 == 0 ? true : false;
 }
 
 bool evenNumberOfEdgesToTheRight(int y, int x, int xMin) {
-  int counter = 0;
-  for (int i = x - 1; i >= xMin; i--)
-    if (map[y][i] == 2)
-      counter++;
-  return counter % 2 == 0 ? true : false;
+	int counter = 0;
+	for (int i = x - 1; i >= xMin; i--)
+		if (map[y][i] == 2)
+			counter++;
+	return counter % 2 == 0 ? true : false;
 }
 
 
 bool evenNumberOfEdgesToTheLeft3(int y, int x, int xMax) {
-  int counter = 0;
-  for (int i = x + 1; i <= xMax; i++)
-    if (map[y][i] == 2 || map[y][i] == 3)
-      counter++;
-  return counter % 2 == 0 ? true : false;
+	int counter = 0;
+	for (int i = x + 1; i <= xMax; i++)
+		if (map[y][i] == 2 || map[y][i] == 3)
+			counter++;
+	return counter % 2 == 0 ? true : false;
 }
 
 bool evenNumberOfEdgesToTheRight3(int y, int x, int xMin) {
-  int counter = 0;
-  for (int i = x - 1; i >= xMin; i--)
-    if (map[y][i] == 2 || map[y][i] == 3)
-      counter++;
-  return counter % 2 == 0 ? true : false;
+	int counter = 0;
+	for (int i = x - 1; i >= xMin; i--)
+		if (map[y][i] == 2 || map[y][i] == 3)
+			counter++;
+	return counter % 2 == 0 ? true : false;
 }
 
 void scanLine(int yMin, int yMax, int xMin, int xMax) {
 	int vertexCounter;
+#pragma omp parallel for firstprivate(yMin, yMax, xMin, xMax) shared(map)
 	for (int i = yMin + 1; i < yMax; i++) {
 		vertexCounter = 0;
 		for (int j = xMin; j < xMax; j++) {
-      if (!evenNumberOfEdgesToTheLeft3(i, j, xMax) && !evenNumberOfEdgesToTheRight3(i, j, xMin) && map[i][j] != 2 && map[i][j] != 3)
-        map[i][j] = 1;
+			if (!evenNumberOfEdgesToTheLeft3(i, j, xMax) && !evenNumberOfEdgesToTheRight3(i, j, xMin) && map[i][j] != 2 && map[i][j] != 3)
+				map[i][j] = 1;
 
-      if (!evenNumberOfEdgesToTheLeft(i, j, xMax) && !evenNumberOfEdgesToTheRight(i, j, xMin) && map[i][j] != 2 && map[i][j] != 3)
-        map[i][j] = 1;
-    }
+			if (!evenNumberOfEdgesToTheLeft(i, j, xMax) && !evenNumberOfEdgesToTheRight(i, j, xMin) && map[i][j] != 2 && map[i][j] != 3)
+				map[i][j] = 1;
+		}
 	}
 
+#pragma omp parallel for firstprivate(yMin, yMax, xMin, xMax) shared(map)
 	for (int i = yMin + 1; i < yMax; i++) {
 		vertexCounter = 0;
 		for (int j = xMin; j < xMax; j++) {
-      if (map[i+1][j] == 1 && map[i-1][j] == 1 && map[i][j]==0)
-        map[i][j]=1;
-    }
-  }
+			if (map[i + 1][j] == 1 && map[i - 1][j] == 1 && map[i][j] == 0)
+				map[i][j] = 1;
+		}
+	}
 }
 
 void drawUsingSDL() {
@@ -208,6 +213,8 @@ void drawUsingSDL() {
 
 int main(int argc, char** argv) {
 
+	omp_set_num_threads(8);
+
 	std::string fileName;
 	if (argc < 2)
 		std::cout << "Niewystarczająca liczba argumentów. Podaj scieżkę do pliku z punktami wielokąta.\n";
@@ -215,9 +222,11 @@ int main(int argc, char** argv) {
 		fileName = argv[1];
 
 	std::pair<std::pair<int, int>, std::pair<int, int>> dimensions = readPoints(fileName);
+	double start = omp_get_wtime();
 	initializeMap(dimensions.first.first, dimensions.first.second, dimensions.second.first, dimensions.second.second);
 	calculatEdges();
-  scanLine(dimensions.first.first, dimensions.first.second, dimensions.second.first, dimensions.second.second);
+	scanLine(dimensions.first.first, dimensions.first.second, dimensions.second.first, dimensions.second.second);
+	double time = omp_get_wtime() - start;
 
 	if (DEBUG) {
 		printAllPoints();
@@ -227,6 +236,7 @@ int main(int argc, char** argv) {
 		printMap();
 	}
 
+	std::cout << "Czas trwania algorytmy wypelniania wielokata: " << time << "\n";
 	drawUsingSDL();
 	return 0;
 }
