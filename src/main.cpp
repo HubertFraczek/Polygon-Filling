@@ -58,18 +58,12 @@ void printAllPoints() {
 }
 
 void printMap() {
-	int c = 0;
-	for (auto& i : map) {
-		c++;
-		int z = 0;
-		for (auto& j : i) {
-			z++;
-			std::cout << j << " ";
-			if (j != 0) {
-				std::cout << j << " ";
-			}
-		}
-	}
+  for (auto &i : map) {
+    for (auto &j : i) {
+      std::cout << j << " ";
+    }
+    std::cout << "\n";
+  }
 }
 
 void initializeMap(int yMin, int yMax, int xMin, int xMax) {
@@ -82,54 +76,78 @@ void initializeMap(int yMin, int yMax, int xMin, int xMax) {
 	}
 }
 
-void calculatedges() {
-	int y1, x1, y2, x2, translation, acc, tmp;
+void calculatEdges() {
+	int y1, x1, y2, x2, tmp, y_acc, x_acc, old_x, counter;
+  float accV2, x, y;
+
 	for (int i = 0; i < points.size(); i++) {
 		y1 = points[i].first;
 		x1 = points[i].second;
 		if (i == points.size() - 1) {
 			y2 = points[0].first;
 			x2 = points[0].second;
-		}
-		else {
+		} else {
 			y2 = points[i + 1].first;
 			x2 = points[i + 1].second;
 		}
-		translation = 0;
+
 		map[y1][x1] = 3;
 		map[y2][x2] = 3;
 		if (y1 == y2) {
 			for (int x = std::min(x1, x2) + 1;
 				x < std::max(x1, x2); x++)
 				map[y1][x] = 2;
-		}
-		else if (x1 == x2) {
+		} else if (x1 == x2) {
 			for (int y = std::min(y1, y2) + 1;
 				y < std::max(y1, y2); y++)
 				map[y][x1] = 2;
-		}
-		else {
-			if (y1 > y2) {
-				map[y1][x1 + 1] = 2;
-				tmp = y1;
-				y1 = y2;
-				y2 = tmp;
-				tmp = x1;
-				x1 = x2;
-				x2 = tmp;
-			}
-			for (int j = std::min(y1, y2) + 1; j < std::max(y1, y2); j++) {
-				acc = std::ceil((float)abs(x1 - x2) / abs(y1 - y2));
-				if (x1 > x2)
-					acc *= -1;
-				map[j][x1 + acc] = 2;
-				if (x1 > x2)
-					x1--;
-				else
-					x1++;
-			}
+		} else {
+      counter = 0;
+      y_acc = y1 < y2 ? 1 : -1;
+      x_acc = x1 < x2 ? 1 : -1;
+      x = x1;
+      accV2 = x_acc * ((float) abs(x1 - x2) / abs(y1 - y2));
+
+      while (abs(y1 - y2) > 1) {
+        y1 += y_acc;
+        x += accV2;
+        map[y1][(int)x] = 2;
+      }
 		}
 	}
+}
+
+bool evenNumberOfEdgesToTheLeft(int y, int x, int xMax) {
+  int counter = 0;
+  for (int i = x + 1; i <= xMax; i++)
+    if (map[y][i] == 2)
+      counter++;
+  return counter % 2 == 0 ? true : false;
+}
+
+bool evenNumberOfEdgesToTheRight(int y, int x, int xMin) {
+  int counter = 0;
+  for (int i = x - 1; i >= xMin; i--)
+    if (map[y][i] == 2)
+      counter++;
+  return counter % 2 == 0 ? true : false;
+}
+
+
+bool evenNumberOfEdgesToTheLeft3(int y, int x, int xMax) {
+  int counter = 0;
+  for (int i = x + 1; i <= xMax; i++)
+    if (map[y][i] == 2 || map[y][i] == 3)
+      counter++;
+  return counter % 2 == 0 ? true : false;
+}
+
+bool evenNumberOfEdgesToTheRight3(int y, int x, int xMin) {
+  int counter = 0;
+  for (int i = x - 1; i >= xMin; i--)
+    if (map[y][i] == 2 || map[y][i] == 3)
+      counter++;
+  return counter % 2 == 0 ? true : false;
 }
 
 void scanLine(int yMin, int yMax, int xMin, int xMax) {
@@ -137,15 +155,21 @@ void scanLine(int yMin, int yMax, int xMin, int xMax) {
 	for (int i = yMin + 1; i < yMax; i++) {
 		vertexCounter = 0;
 		for (int j = xMin; j < xMax; j++) {
-			if (map[i][j] == 2 || map[i][j] == 3) {
-				vertexCounter++;
-				continue;
-			}
+      if (!evenNumberOfEdgesToTheLeft3(i, j, xMax) && !evenNumberOfEdgesToTheRight3(i, j, xMin) && map[i][j] != 2 && map[i][j] != 3)
+        map[i][j] = 1;
 
-			if (vertexCounter % 2 == 1)
-				map[i][j] = 1;
-		}
+      if (!evenNumberOfEdgesToTheLeft(i, j, xMax) && !evenNumberOfEdgesToTheRight(i, j, xMin) && map[i][j] != 2 && map[i][j] != 3)
+        map[i][j] = 1;
+    }
 	}
+
+	for (int i = yMin + 1; i < yMax; i++) {
+		vertexCounter = 0;
+		for (int j = xMin; j < xMax; j++) {
+      if (map[i+1][j] == 1 && map[i-1][j] == 1 && map[i][j]==0)
+        map[i][j]=1;
+    }
+  }
 }
 
 void drawUsingSDL() {
@@ -192,8 +216,8 @@ int main(int argc, char** argv) {
 
 	std::pair<std::pair<int, int>, std::pair<int, int>> dimensions = readPoints(fileName);
 	initializeMap(dimensions.first.first, dimensions.first.second, dimensions.second.first, dimensions.second.second);
-	calculatedges();
-	scanLine(dimensions.first.first, dimensions.first.second, dimensions.second.first, dimensions.second.second);
+	calculatEdges();
+  scanLine(dimensions.first.first, dimensions.first.second, dimensions.second.first, dimensions.second.second);
 
 	if (DEBUG) {
 		printAllPoints();
