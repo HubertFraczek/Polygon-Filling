@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <math.h>
 #include <omp.h>
-#include <SDL.h>
+#include <SDL2/SDL.h>
 
 #define NOMINMAX
 #define DEBUG false
@@ -74,6 +74,13 @@ void initializeMap(int yMin, int yMax, int xMin, int xMax) {
 		}
 		map.push_back(tmp);
 	}
+}
+
+void scaleImg(int scale) {
+  for (auto &p: points) {
+    p.first = p.first * scale;
+    p.second = p.second * scale;
+  }
 }
 
 void calculatEdges() {
@@ -150,10 +157,17 @@ bool evenNumberOfEdgesToTheRight3(int y, int x, int xMin) {
   return counter % 2 == 0 ? true : false;
 }
 
-void scanLine(int yMin, int yMax, int xMin, int xMax) {
-	int vertexCounter;
+void clean(int yMin, int yMax, int xMin, int xMax) {
 	for (int i = yMin + 1; i < yMax; i++) {
-		vertexCounter = 0;
+		for (int j = xMin; j < xMax; j++) {
+      if (map[i + 1][j] == 1 && map[i - 1][j] == 1 && map[i][j] == 0)
+        map[i][j] = 1;
+    }
+  }
+}
+
+void scanLine(int yMin, int yMax, int xMin, int xMax) {
+	for (int i = yMin + 1; i < yMax; i++) {
 		for (int j = xMin; j < xMax; j++) {
       if (!evenNumberOfEdgesToTheLeft3(i, j, xMax) && !evenNumberOfEdgesToTheRight3(i, j, xMin) && map[i][j] != 2 && map[i][j] != 3)
         map[i][j] = 1;
@@ -163,16 +177,80 @@ void scanLine(int yMin, int yMax, int xMin, int xMax) {
     }
 	}
 
-	for (int i = yMin + 1; i < yMax; i++) {
-		vertexCounter = 0;
-		for (int j = xMin; j < xMax; j++) {
-      if (map[i+1][j] == 1 && map[i-1][j] == 1 && map[i][j]==0)
-        map[i][j]=1;
-    }
-  }
+  clean(yMin, yMax, xMin, xMax);
 }
 
-void drawUsingSDL() {
+///////////////////////////////////////////////////////////////////////////////
+//                                   mpi                                     //
+///////////////////////////////////////////////////////////////////////////////
+
+bool evenNumberOfEdgesToTheLeft_MPI(std::vector<int> row, int x, int xMax) {
+  int counter = 0;
+  for (int i = x + 1; i <= xMax; i++)
+    if (row[i] == 2)
+      counter++;
+  return counter % 2 == 0 ? true : false;
+}
+
+bool evenNumberOfEdgesToTheRight_MPI(std::vector<int> row, int x, int xMin) {
+  int counter = 0;
+  for (int i = x - 1; i >= xMin; i--)
+    if (row[i] == 2)
+      counter++;
+  return counter % 2 == 0 ? true : false;
+}
+
+bool evenNumberOfEdgesToTheLeft3_MPI(std::vector<int> row, int x, int xMax) {
+  int counter = 0;
+  for (int i = x + 1; i <= xMax; i++)
+    if (row[i] == 2 || row[i] == 3)
+      counter++;
+  return counter % 2 == 0 ? true : false;
+}
+
+bool evenNumberOfEdgesToTheRight3_MPI(std::vector<int> row, int x, int xMin) {
+  int counter = 0;
+  for (int i = x - 1; i >= xMin; i--)
+    if (row[i] == 2 || row[i] == 3)
+      counter++;
+  return counter % 2 == 0 ? true : false;
+}
+
+std::vector<int> scanLineRow_MPI(std::vector<int> row) {
+  int xMax = row.size();
+  for (int x = 0; x < xMax; x++) {
+    if (!evenNumberOfEdgesToTheLeft3_MPI(row, x, xMax) && !evenNumberOfEdgesToTheRight3_MPI(row, x, 0) && row[x] != 2 && row[x] != 3)
+      row[x] = 1;
+
+    if (!evenNumberOfEdgesToTheLeft_MPI(row, x, xMax) && !evenNumberOfEdgesToTheRight_MPI(row, x, 0) && row[x] != 2 && row[x] != 3)
+      row[x] = 1;
+  }
+
+  return row;
+}
+
+std::vector<int> transformTo1d() {
+  std::vector<int> result;
+  for (auto &row : map)
+    for (auto &v : row)
+      result.push_back(v);
+  return result;
+}
+
+std::vector<std::vector<int>> scanLine_MPI() {
+  int rowLength = map[0].size();
+  std::vector<int> map1d = transformTo1d();
+  std::vector<std::vector<int>> result;
+
+  for (int i = 0; i < map1d.size() - rowLength; i += rowLength) {
+    std::vector<int> tmp(&map1d[i], &map1d[i + rowLength]);
+    std::vector<int> res = scanLineRow_MPI(tmp);
+    result.push_back(res);
+  }
+  return result;
+}
+
+void drawUsingSDL(std::vector<std::vector<int>> map) {
 	SDL_Event event;
 	SDL_Renderer* renderer;
 	SDL_Window* window;
@@ -216,6 +294,9 @@ int main(int argc, char** argv) {
 
 	std::pair<std::pair<int, int>, std::pair<int, int>> dimensions = readPoints(fileName);
 	initializeMap(dimensions.first.first, dimensions.first.second, dimensions.second.first, dimensions.second.second);
+
+  scaleImg(1);
+
 	calculatEdges();
   scanLine(dimensions.first.first, dimensions.first.second, dimensions.second.first, dimensions.second.second);
 
@@ -227,6 +308,7 @@ int main(int argc, char** argv) {
 		printMap();
 	}
 
-	drawUsingSDL();
-	return 0;
+	//drawUsingSDL(scanLine_MPI());
+  drawUsingSDL(map);
+  return 0;
 }
