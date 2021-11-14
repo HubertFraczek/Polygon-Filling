@@ -305,7 +305,11 @@ int main(int argc, char** argv) {
 	double start = MPI_Wtime();
 
 	std::vector<int> partialResult;
-	std::string fileName = "C:\\Users\\Michal\\Downloads\\poly.txt";
+	std::string fileName;
+	if (argc < 2)
+		std::cout << "Niewystarczająca liczba argumentów. Podaj scieżkę do pliku z punktami wielokąta.\n";
+	else
+		fileName = argv[1];
 
 	std::pair<std::pair<int, int>, std::pair<int, int>> dimensions = readPoints(fileName);
 	initializeMap(dimensions.first.first, dimensions.first.second, dimensions.second.first, dimensions.second.second);
